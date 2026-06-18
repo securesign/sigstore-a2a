@@ -1,0 +1,104 @@
+{
+  "mediaType": "application/vnd.dev.sigstore.clienttrustconfig.v0.1+json",
+  "trustedRoot": {
+    "mediaType": "application/vnd.dev.sigstore.trustedroot+json;version=0.1",
+    "tlogs": [
+      {
+        "baseUrl": "https://rekor.tas.example.com",
+        "hashAlgorithm": "SHA2_256",
+        "publicKey": {
+          "rawBytes": "<BASE64-ENCODED-REKOR-PUBLIC-KEY>",
+          "keyDetails": "PKIX_ECDSA_P256_SHA_256",
+          "validFor": {
+            "start": "2025-01-01T00:00:00Z"
+          }
+        },
+        "logId": {
+          "keyId": "<BASE64-ENCODED-LOG-ID>"
+        }
+      }
+    ],
+    "certificateAuthorities": [
+      {
+        "subject": {
+          "organization": "Example Corp",
+          "commonName": "Example Corp Sigstore CA"
+        },
+        "uri": "https://fulcio.tas.example.com",
+        "certChain": {
+          "certificates": [
+            {
+              "rawBytes": "<BASE64-ENCODED-FULCIO-ROOT-CERT>"
+            }
+          ]
+        },
+        "validFor": {
+          "start": "2025-01-01T00:00:00Z"
+        }
+      }
+    ],
+    "ctlogs": [],
+    "timestampAuthorities": [
+      {
+        "subject": {
+          "organization": "Example Corp",
+          "commonName": "Example Corp TSA"
+        },
+        "uri": "https://tsa.tas.example.com/api/v1/timestamp",
+        "certChain": {
+          "certificates": [
+            {
+              "rawBytes": "<BASE64-ENCODED-TSA-CERT>"
+            }
+          ]
+        },
+        "validFor": {
+          "start": "2025-01-01T00:00:00Z"
+        }
+      }
+    ]
+  },
+  "signingConfig": {
+    "mediaType": "application/vnd.dev.sigstore.signingconfig.v0.2+json",
+    "caUrls": [
+      {
+        "url": "https://fulcio.tas.example.com",
+        "majorApiVersion": 1,
+        "validFor": {
+          "start": "2025-01-01T00:00:00Z"
+        },
+        "operator": "example-corp"
+      }
+    ],
+    "oidcUrls": [
+      {
+        "url": "https://oidc.tas.example.com/auth",
+        "majorApiVersion": 1,
+        "validFor": {
+          "start": "2025-01-01T00:00:00Z"
+        },
+        "operator": "example-corp"
+      }
+    ],
+    "rekorTlogUrls": [
+      {
+        "url": "https://rekor.tas.example.com",
+        "majorApiVersion": 1,
+        "validFor": {
+          "start": "2025-01-01T00:00:00Z"
+        },
+        "operator": "example-corp"
+      }
+    ],
+    "tsaUrls": [
+      {
+        "url": "https://tsa.tas.example.com/api/v1/timestamp",
+        "majorApiVersion": 1,
+        "validFor": {
+          "start": "2025-01-01T00:00:00Z"
+        },
+        "operator": "example-corp"
+      }
+    ]
+  }
+}
