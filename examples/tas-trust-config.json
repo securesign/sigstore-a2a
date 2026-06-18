@@ -66,7 +66,8 @@
         "majorApiVersion": 1,
         "validFor": {
           "start": "2025-01-01T00:00:00Z"
-        }
+        },
+        "operator": "example-corp"
       }
     ],
     "oidcUrls": [
@@ -75,7 +76,8 @@
         "majorApiVersion": 1,
         "validFor": {
           "start": "2025-01-01T00:00:00Z"
-        }
+        },
+        "operator": "example-corp"
       }
     ],
     "rekorTlogUrls": [
@@ -84,7 +86,8 @@
         "majorApiVersion": 1,
         "validFor": {
           "start": "2025-01-01T00:00:00Z"
-        }
+        },
+        "operator": "example-corp"
       }
     ],
     "tsaUrls": [
@@ -93,7 +96,8 @@
         "majorApiVersion": 1,
         "validFor": {
           "start": "2025-01-01T00:00:00Z"
-        }
+        },
+        "operator": "example-corp"
       }
     ]
   }

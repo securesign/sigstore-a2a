@@ -29,7 +29,11 @@ on:
         default: "examples/georoute-agent.json"
 
 env:
-  # ── Replace these with your TAS deployment URLs ──────────────────────
+  # ── Replace these with your TAS deployment values ────────────────────
+  # TAS_URL: Your Sigstore instance URL (TUF-bootstrapped).
+  # TAS_TUF_ROOT: Path to the TUF root metadata JSON obtained from your
+  #   TAS administrator. This is NOT a ClientTrustConfig — it is the
+  #   initial TUF root used by `trust-instance` to bootstrap trust.
   TAS_URL: "https://sigstore.example.com"
   TAS_TUF_ROOT: "examples/tas-tuf-root.json"
   # ────────────────────────────────────────────────────────────────────
@@ -72,27 +76,31 @@ jobs:
       - name: Bootstrap TAS trust
         run: |
           uv run sigstore-a2a trust-instance \
-            "${{ env.TAS_TUF_ROOT }}" \
-            --instance "${{ env.TAS_URL }}"
+            "$TAS_TUF_ROOT" \
+            --instance "$TAS_URL"
 
       # ── Step 2: Sign the Agent Card using GitHub OIDC identity ────────
       - name: Sign Agent Card
+        env:
+          AGENT_CARD: ${{ inputs.agent_card || 'examples/georoute-agent.json' }}
         run: |
           uv run sigstore-a2a sign \
             --output signed-agent-card.json \
-            --instance "${{ env.TAS_URL }}" \
+            --instance "$TAS_URL" \
             --use_ambient_credentials \
             --repository "${{ github.repository }}" \
             --provenance \
-            "${{ inputs.agent_card || 'examples/georoute-agent.json' }}"
+            "$AGENT_CARD"
 
       # ── Step 3: Verify the signed Agent Card against TAS ──────────────
       - name: Verify Agent Card
         run: |
           uv run sigstore-a2a --verbose verify \
-            --instance "${{ env.TAS_URL }}" \
+            --instance "$TAS_URL" \
             --identity_provider "https://token.actions.githubusercontent.com" \
+            --identity "https://github.com/${{ github.repository }}/.github/workflows/sign-agentcard-tas.yml@${{ github.ref }}" \
             --repository "${{ github.repository }}" \
+            --workflow "Sign Agent Card (TAS)" \
             signed-agent-card.json
 
       - name: Upload signed Agent Card

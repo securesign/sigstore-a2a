@@ -49,7 +49,7 @@ into enterprise CI/CD pipelines.
 1. **Bootstrap trust** — downloads TUF metadata from your TAS instance via the
    `trust-instance` command
 2. **Sign** — signs an Agent Card using `--instance` with GitHub Actions OIDC
-   identity (`id-token: write`), producing a Sigstore bundle with SLSA provenance
+   identity (`id-token: write`), with optional SLSA provenance via `--provenance`
 3. **Verify** — verifies the signed Agent Card against the same TAS instance
 
 ### How to adapt it
@@ -75,6 +75,7 @@ TAS deployment's actual certificates and endpoints. For details on the
 sigstore-a2a sign examples/georoute-agent.json \
   --trust_config examples/tas-trust-config.json \
   --use_ambient_credentials \
+  --provenance \
   --output signed.json
 ```
 
@@ -88,8 +89,27 @@ sigstore-a2a trust-instance root.json --instance https://sigstore.example.com
 sigstore-a2a sign examples/georoute-agent.json \
   --instance https://sigstore.example.com \
   --use_ambient_credentials \
+  --provenance \
   --output signed.json
 ```
+
+### Verifying against TAS
+
+```bash
+# Verify with --instance (after trust-instance bootstrap)
+sigstore-a2a verify signed.json \
+  --instance https://sigstore.example.com \
+  --identity_provider https://token.actions.githubusercontent.com \
+  --identity "https://github.com/owner/repo/.github/workflows/sign-agentcard-tas.yml@refs/heads/main"
+
+# Verify with --trust_config
+sigstore-a2a verify signed.json \
+  --trust_config examples/tas-trust-config.json \
+  --identity_provider https://token.actions.githubusercontent.com \
+  --identity "https://github.com/owner/repo/.github/workflows/sign-agentcard-tas.yml@refs/heads/main"
+```
+
+Note: `--staging`, `--instance`, and `--trust_config` are mutually exclusive.
 
 ## CI/CD
 
