@@ -4,7 +4,7 @@ USER 0
 WORKDIR /app
 RUN ARCH=$(uname -m) && \
     if [ "$ARCH" = "ppc64le" ] || [ "$ARCH" = "s390x" ]; then \
-      microdnf install -y gcc openssl-devel && microdnf clean all; \
+      microdnf install -y gcc openssl-devel perl && microdnf clean all; \
     fi
 COPY sigstore_a2a /app/sigstore_a2a
 COPY pyproject.toml /app/
