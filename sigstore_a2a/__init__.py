@@ -19,7 +19,7 @@ This library provides tools for signing and verifying A2A Agent Cards using
 Sigstore's keyless signing infrastructure with SLSA provenance attestations.
 """
 
-__version__ = "0.0.1rc4"
+__version__ = "0.0.1rc5"
 
 
 def __getattr__(name: str):
