@@ -3,13 +3,16 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "sigstore-a2a"
+name = "rh-sigstore-a2a"
 dynamic = ["version"]
-description = "Keyless signing library for A2A Agent Cards using Sigstore and SLSA provenance"
+description = "Keyless signing library for A2A Agent Cards using Sigstore and SLSA provenance (Red Hat Tech Preview)"
 readme = "README.md"
 license = { file = "LICENSE" }
 authors = [
-    { name = "Luke Hinds", email = "luke@rdrocket.com" }
+    { name = "Sigstore Authors", email = "sigstore-dev@googlegroups.com" }
+]
+maintainers = [
+    { name = "Sachin Sampras M", email = "sampras343@gmail.com" }
 ]
 requires-python = ">=3.11"
 classifiers = [
@@ -55,14 +58,15 @@ keywords = [
 
 [project.scripts]
 sigstore-a2a = "sigstore_a2a.cli.main:cli"
+rh-sigstore-a2a = "sigstore_a2a.cli.main:cli"
 
 [project.urls]
-Homepage = "https://sigstore.github.io/sigstore-a2a"
-Changelog = "https://github.com/sigstore/sigstore-a2a/blob/main/CHANGELOG.md"
-Documentation = "https://sigstore.github.io/sigstore-a2a"
-Source = "https://github.com/sigstore/sigstore-a2a"
-Issues = "https://github.com/sigstore/sigstore-a2a/issues"
-PyPI = "https://pypi.org/project/sigstore-a2a/"
+Homepage = "https://securesign.github.io/sigstore-a2a"
+Changelog = "https://github.com/securesign/sigstore-a2a/blob/main/CHANGELOG.md"
+Documentation = "https://github.com/securesign/sigstore-a2a"
+Source = "https://github.com/securesign/sigstore-a2a"
+Issues = "https://github.com/securesign/sigstore-a2a/issues"
+PyPI = "https://pypi.org/project/rh-sigstore-a2a/"
 
 [tool.hatch.version]
 path = "sigstore_a2a/__init__.py"

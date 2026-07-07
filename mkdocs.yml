@@ -99,5 +99,5 @@ extra:
     - icon: fontawesome/brands/github
       link: https://github.com/sigstore/sigstore-a2a
     - icon: fontawesome/brands/python
-      link: https://pypi.org/project/sigstore-a2a/
+      link: https://pypi.org/project/rh-sigstore-a2a/
 

@@ -19,7 +19,7 @@ uv add sigstore-a2a
 ### From source
 
 ```bash
-git clone https://github.com/sigstore/sigstore-a2a.git
+git clone https://github.com/securesign/sigstore-a2a.git
 cd sigstore-a2a
 uv sync
 ```

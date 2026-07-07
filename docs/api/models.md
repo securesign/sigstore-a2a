@@ -71,7 +71,7 @@ provenance = ProvenanceBuilder().from_github_actions().build()
 
 # Manual construction
 provenance = ProvenanceBuilder() \
-    .set_builder("https://github.com/sigstore/sigstore-a2a") \
+    .set_builder("https://github.com/securesign/sigstore-a2a") \
     .set_repository("owner/repo") \
     .set_commit_sha("abc123") \
     .set_workflow_ref(".github/workflows/release.yml") \

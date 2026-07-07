@@ -1,0 +1,111 @@
+# Copyright 2025 The Sigstore Authors
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#      http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+# Reference workflow: Sign and verify an A2A Agent Card against a private
+# Trusted Artifact Signer (TAS) deployment using GitHub Actions OIDC identity.
+#
+# Adapt the TAS_* variables and TUF root file to match your environment.
+# See examples/README.md for details.
+
+name: Sign Agent Card (TAS)
+
+on:
+  workflow_dispatch:
+    inputs:
+      agent_card:
+        description: "Path to the Agent Card JSON file to sign"
+        required: false
+        default: "examples/georoute-agent.json"
+
+env:
+  # ── Replace these with your TAS deployment values ────────────────────
+  # TAS_URL: Your Sigstore instance URL (TUF-bootstrapped).
+  # TAS_TUF_ROOT: Path to the TUF root metadata JSON obtained from your
+  #   TAS administrator. This is NOT a ClientTrustConfig — it is the
+  #   initial TUF root used by `trust-instance` to bootstrap trust.
+  TAS_URL: "https://sigstore.example.com"
+  TAS_TUF_ROOT: "examples/tas-tuf-root.json"
+  # ────────────────────────────────────────────────────────────────────
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  sign-and-verify:
+    name: Sign & Verify Agent Card (TAS)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@8e8c483db84b4bee98b60c0593521ed34d9990e8 # v6.0.1
+
+      - name: Set up Python
+        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6.2.0
+        with:
+          python-version: "3.13"
+
+      - name: Install UV
+        uses: astral-sh/setup-uv@803947b9bd8e9f986429fa0c5a41c367cd732b41 # v7.2.1
+        with:
+          version: "latest"
+
+      - name: Cache UV dependencies
+        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        with:
+          path: ~/.cache/uv
+          key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-uv-
+
+      - name: Install dependencies
+        run: make install
+
+      # ── Step 1: Bootstrap trust for the TAS instance ──────────────────
+      - name: Bootstrap TAS trust
+        run: |
+          uv run sigstore-a2a trust-instance \
+            "$TAS_TUF_ROOT" \
+            --instance "$TAS_URL"
+
+      # ── Step 2: Sign the Agent Card using GitHub OIDC identity ────────
+      - name: Sign Agent Card
+        env:
+          AGENT_CARD: ${{ inputs.agent_card || 'examples/georoute-agent.json' }}
+        run: |
+          uv run sigstore-a2a sign \
+            --output signed-agent-card.json \
+            --instance "$TAS_URL" \
+            --use_ambient_credentials \
+            --repository "${{ github.repository }}" \
+            --provenance \
+            "$AGENT_CARD"
+
+      # ── Step 3: Verify the signed Agent Card against TAS ──────────────
+      - name: Verify Agent Card
+        run: |
+          uv run sigstore-a2a --verbose verify \
+            --instance "$TAS_URL" \
+            --identity_provider "https://token.actions.githubusercontent.com" \
+            --identity "https://github.com/${{ github.repository }}/.github/workflows/sign-agentcard-tas.yml@${{ github.ref }}" \
+            --repository "${{ github.repository }}" \
+            --workflow "Sign Agent Card (TAS)" \
+            signed-agent-card.json
+
+      - name: Upload signed Agent Card
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: signed-agent-card-tas
+          path: signed-agent-card.json
+          retention-days: 30

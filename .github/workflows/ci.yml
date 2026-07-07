@@ -98,6 +98,7 @@ jobs:
       - name: Sign GeoRoute Agent Card
         run: |
           uv run sigstore-a2a sign \
+            --staging \
             --output signed-georoute-agent.json \
             --repository ${{ github.repository }} \
             --provenance \
@@ -107,6 +108,7 @@ jobs:
       - name: Sign Data Analysis Agent Card
         run: |
           uv run sigstore-a2a sign \
+            --staging \
             --output signed-data-analysis-agent.json \
             --repository ${{ github.repository }} \
             --provenance \
@@ -116,6 +118,7 @@ jobs:
       - name: Verify GeoRoute Agent Card
         run: |
           uv run sigstore-a2a --verbose verify \
+            --staging \
             --identity "untrusted-sa@sigstore-conformance.iam.gserviceaccount.com" \
             --identity_provider "https://accounts.google.com" \
             signed-georoute-agent.json
@@ -123,6 +126,7 @@ jobs:
       - name: Verify Data Analysis Agent Card
         run: |
           uv run sigstore-a2a --verbose verify \
+            --staging \
             --identity "untrusted-sa@sigstore-conformance.iam.gserviceaccount.com" \
             --identity_provider "https://accounts.google.com" \
             signed-data-analysis-agent.json

@@ -12,20 +12,21 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
-name: Release
+# Downstream release workflow for rh-sigstore-a2a.
+# Publishes to PyPI using trusted publisher (OIDC), creates a GitHub Release,
+# and builds + pushes a container image to GHCR under the securesign org.
+
+name: Downstream Release
 
 on:
-  # Tag-triggered releases are handled by rh-release.yml for the downstream
-  # rh-sigstore-a2a package. This upstream workflow is retained for manual use only.
-  #
-  # push:
-  #   tags:
-  #     - "v[0-9]+.[0-9]+.[0-9]+"
-  #     - "v[0-9]+.[0-9]+.[0-9]+-*"
+  push:
+    tags:
+      - "rhtas-v[0-9]+.[0-9]+.[0-9]+"
+      - "rhtas-v[0-9]+.[0-9]+.[0-9]+-*"
   workflow_dispatch:
     inputs:
       tag:
-        description: "Git tag to build and publish (e.g. v1.0.1)"
+        description: "Git tag to build and publish (e.g. rhtas-v0.1.0)"
         required: true
         type: string
 
@@ -58,8 +59,10 @@ jobs:
         id: version
         run: |
           tag="${{ steps.ref.outputs.ref }}"
-          version="${tag#refs/tags/v}"
-          version="${version#v}"
+          version="${tag#refs/tags/rhtas-v}"
+          version="${version#rhtas-v}"
+          # Normalize hyphenated prerelease to PEP 440: 0.0.1-rc1 → 0.0.1rc1
+          version=$(echo "$version" | sed -E 's/-?(rc|alpha|beta|dev)/\1/')
           echo "version=${version}" >> "$GITHUB_OUTPUT"
 
       - name: Verify version consistency
@@ -89,14 +92,22 @@ jobs:
           if-no-files-found: error
           retention-days: 5
 
-  # NOTE: PyPI publishing for the downstream rh-sigstore-a2a package is handled
-  # by rh-release.yml. This job is disabled to prevent accidental publishing
-  # to the upstream sigstore-a2a PyPI project from the downstream fork.
-  #
-  # publish:
-  #   name: Publish to PyPI
-  #   needs: [build]
-  #   ...
+  publish:
+    name: Publish to PyPI
+    needs: [build]
+    runs-on: ubuntu-latest
+    environment:
+      name: pypi
+      url: https://pypi.org/project/rh-sigstore-a2a/${{ needs.build.outputs.version }}/
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: dist
+          path: dist/
+      - uses: pypa/gh-action-pypi-publish@cef221092ed1bacb1cc03d23a2d87d1d172e277b # v1.14.0
 
   create_github_release:
     name: Create GitHub Release
@@ -119,7 +130,7 @@ jobs:
 
   build_and_push_container:
     name: Build and Push Docker Image
-    needs: [build]
+    needs: [publish]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -143,7 +154,7 @@ jobs:
         with:
           containerfiles: |
             ./Containerfile
-          image: sigstore/sigstore-a2a
+          image: securesign/sigstore-a2a
           tags: "latest ${{ github.ref_name }}"
           archs: amd64
           oci: false
@@ -157,6 +168,6 @@ jobs:
       - name: Generate artifact attestation
         uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
         with:
-          subject-name: ghcr.io/sigstore/sigstore-a2a
+          subject-name: ghcr.io/securesign/sigstore-a2a
           subject-digest: ${{ steps.push.outputs.digest }}
           push-to-registry: true

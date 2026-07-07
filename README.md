@@ -1,275 +1,344 @@
-# sigstore-a2a
+# rh-sigstore-a2a
 
-> ⚠️ **Warning:** Prototype code - not for production use. Code is not reviewed and has not undergone a security audit.
+> **Red Hat Tech Preview** — This package is under active development. APIs may change between releases.
 
-A Python library and CLI tool for keyless signing of A2A (Agent-to-Agent) AgentCards using
-[Sigstore](https://sigstore.dev/) and [SLSA](https://slsa.dev/) provenance attestations.
+A Python library and CLI for keyless signing and verification of
+[A2A](https://google.github.io/A2A/) Agent Cards using
+[Sigstore](https://sigstore.dev/) with [SLSA](https://slsa.dev/) provenance attestations.
 
-## Overview
+## Features
 
-This library enables verifiable supply chain security for A2A agents by providing:
-
-- **Keyless signing** of A2A Agent Cards using Sigstore's infrastructure
-- **SLSA provenance generation** to link Agent Cards to their source repositories and build workflows
-- **Identity verification** to establish trust in agent origins
-- **Discovery integration** for serving signed Agent Cards at well-known endpoints
-
-## Requirements
-
-- Python 3.11+
-- UV package manager (recommended) or pip
+- **Keyless signing** — no long-lived secrets to manage; signs using short-lived certificates from CI/CD OIDC identity
+- **SLSA provenance** — links Agent Cards to their source repository, commit SHA, and build workflow
+- **Identity verification** — enforces signer identity, repository, and workflow constraints
+- **Private instance support** — works with [Trusted Artifact Signer (TAS)](https://docs.redhat.com/en/documentation/red_hat_trusted_artifact_signer) deployments via `--instance` or `--trust_config`
+- **Agent Card serving** — serves signed Agent Cards at A2A well-known endpoints for testing
 
 ## Installation
 
 ```bash
-# Install from source using UV (recommended)
-git clone https://github.com/sigstore/sigstore-a2a
-cd sigstore-a2a
-uv sync --prerelease=allow
-
-# Alternative: Install from source using pip
-pip install -e .
+pip install rh-sigstore-a2a
 ```
 
-## Getting Started
+Requires Python 3.11+.
 
-### Signing in CI/CD
+## Quick Start
 
-The library uses ambient OIDC credentials from CI/CD environments like GitHub Actions to perform keyless signing. This creates a verifiable link between your Agent Card and the source code repository:
+### Sign an Agent Card
 
 ```bash
-# Sign an Agent Card using CI/CD OIDC credentials
-sigstore-a2a sign agent-card.json --output signed-agent-card.json
+# In a CI/CD environment with OIDC credentials (e.g., GitHub Actions)
+sigstore-a2a sign agent-card.json \
+  --output signed-agent-card.json \
+  --use_ambient_credentials \
+  --provenance \
+  --repository owner/repo
+```
 
-# Sign with explicit repository binding
-sigstore-a2a sign agent-card.json --repository $GITHUB_REPOSITORY
+### Verify a Signed Agent Card
 
-# Verify with repository constraint
-sigstore-a2a verify signed-agent-card.json --repository owner/repo
+```bash
+sigstore-a2a verify signed-agent-card.json \
+  --identity_provider https://token.actions.githubusercontent.com \
+  --identity "https://github.com/owner/repo/.github/workflows/sign.yml@refs/heads/main" \
+  --repository owner/repo
 ```
 
 ### Library Usage
 
 ```python
-from sigstore-a2a.signer import AgentCardSigner
-from sigstore-a2a.verifier import AgentCardVerifier
-from sigstore-a2a.provenance import ProvenanceBuilder
+from sigstore_a2a.signer import AgentCardSigner
+from sigstore_a2a.verifier import AgentCardVerifier
+from sigstore_a2a.provenance import ProvenanceBuilder
 
-# Signing (requires OIDC credentials from CI/CD)
-signer = AgentCardSigner()
-provenance_builder = ProvenanceBuilder()
-
-provenance = provenance_builder.build_provenance("agent-card.json")
+# Sign (requires OIDC credentials from CI/CD)
+signer = AgentCardSigner(use_ambient_credentials=True)
+provenance = ProvenanceBuilder().build_provenance("agent-card.json")
 signed_card = signer.sign_agent_card("agent-card.json", provenance_bundle=provenance)
 
-# Verify a signed Agent Card
+# Verify
 verifier = AgentCardVerifier()
 result = verifier.verify_signed_card(signed_card)
-
 if result.valid:
-    print(f"Valid signature from {result.identity}")
-else:
-    print(f"Invalid signature: {result.errors}")
+    print(f"Valid: signed by {result.identity}")
 ```
 
-## Agent Card Structure
+## Trusted Artifact Signer (TAS) Integration
 
-Agent Cards are extended with cryptographic verification material:
+For on-premise deployments using [Red Hat Trusted Artifact Signer](https://docs.redhat.com/en/documentation/red_hat_trusted_artifact_signer),
+use `--instance` (TUF-bootstrapped) or `--trust_config` (manual JSON) instead of
+the public Sigstore infrastructure.
 
-```json
-{
-  "agentCard": {
-    "protocolVersion": "0.2.9",
-    "name": "Example Agent",
-    "description": "An example AI agent",
-    "url": "https://example.com/agent",
-    "version": "1.0.0",
-    "capabilities": {...},
-    "skills": [...]
-  },
-  "verificationMaterial": {
-    "signatureBundle": {
-      "signature": "base64-encoded-signature",
-      "certificate": "-----BEGIN CERTIFICATE-----...",
-      "transparencyLogEntry": {...},
-      "timestamp": "2024-01-01T00:00:00Z"
-    },
-    "provenanceBundle": {
-      "provenance": {
-        "subject": [...],
-        "runDetails": {...},
-        "buildDefinition": {...}
-      }
-    }
-  }
-}
+### Using --instance (TUF-bootstrapped)
+
+```bash
+# Bootstrap trust (one-time)
+sigstore-a2a trust-instance root.json --instance https://sigstore.example.com
+
+# Sign
+sigstore-a2a sign agent-card.json \
+  --instance https://sigstore.example.com \
+  --use_ambient_credentials \
+  --provenance \
+  --output signed-agent-card.json
+
+# Verify
+sigstore-a2a verify signed-agent-card.json \
+  --instance https://sigstore.example.com \
+  --identity_provider https://keycloak.example.com/realms/trusted-artifact-signer \
+  --identity signer@example.com
+```
+
+### Using --trust_config (ClientTrustConfig JSON)
+
+```bash
+sigstore-a2a sign agent-card.json \
+  --trust_config trust-config.json \
+  --identity_token "$OIDC_TOKEN" \
+  --client_id my-client \
+  --output signed-agent-card.json
+```
+
+See [`examples/tas-trust-config.json`](examples/tas-trust-config.json) for a
+template. Note that `--staging`, `--instance`, and `--trust_config` are mutually exclusive.
+
+## CLI Reference
+
+```
+sigstore-a2a sign <agent-card> [OPTIONS]
+  --output, -o PATH       Output path for signed Agent Card
+  --staging               Use Sigstore staging environment
+  --instance URL          Sigstore instance URL (TUF-bootstrapped)
+  --trust_config PATH     Path to ClientTrustConfig JSON
+  --use_ambient_credentials  Use ambient CI/CD OIDC credentials
+  --identity_token TOKEN  Use a fixed OIDC identity token
+  --client_id ID          Custom OIDC client ID
+  --provenance            Include SLSA provenance
+  --repository REPO       Override repository for provenance
+  --commit_sha SHA        Override commit SHA for provenance
+
+sigstore-a2a verify <signed-card> [OPTIONS]
+  --staging               Use Sigstore staging environment
+  --instance URL          Sigstore instance URL (TUF-bootstrapped)
+  --trust_config PATH     Path to ClientTrustConfig JSON
+  --identity_provider URL Required OIDC issuer URL
+  --identity IDENTITY     Expected signer identity
+  --repository REPO       Required repository constraint
+  --workflow NAME         Required workflow name constraint
+
+sigstore-a2a trust-instance <root-file> --instance URL
+  Bootstrap TUF trust for a private Sigstore instance.
+
+sigstore-a2a serve <signed-card> [OPTIONS]
+  --host HOST             Host to bind to (default: 127.0.0.1)
+  --port PORT             Port to bind to (default: 8080)
+  --staging               Use Sigstore staging environment
+  --no-verify             Skip signature verification on startup
+```
+
+### Sign Examples
+
+```bash
+# Minimal: sign with production trust and interactive auth (local dev)
+sigstore-a2a sign agent-card.json
+
+# Write to a specific output path
+sigstore-a2a sign agent-card.json --output signed-card.json
+
+# Use Sigstore staging (good for sandbox testing)
+sigstore-a2a sign agent-card.json --staging
+
+# Prefer ambient CI credentials (GitHub Actions, etc.)
+sigstore-a2a sign agent-card.json --use_ambient_credentials
+
+# Sign with SLSA provenance and repo/commit metadata
+sigstore-a2a sign agent-card.json --provenance \
+  --repository myorg/myrepo \
+  --commit_sha "$GITHUB_SHA" \
+  --workflow_ref ".github/workflows/ci.yml@refs/heads/main"
+
+# Private Sigstore instance with provenance and ambient credentials
+sigstore-a2a sign agent-card.json \
+  --trust_config ./signing_config.json \
+  --provenance \
+  --use_ambient_credentials
+```
+
+### Verify Examples
+
+```bash
+# Minimal verification with required identity + identity provider
+sigstore-a2a verify signed-card.json \
+  --identity dev@example.com \
+  --identity_provider https://accounts.google.com
+
+# Enforce GitHub repository + workflow constraints
+sigstore-a2a verify signed-card.json \
+  --identity "https://github.com/owner/repo/.github/workflows/ci.yml@refs/heads/main" \
+  --identity_provider https://token.actions.githubusercontent.com \
+  --repository owner/repo \
+  --workflow ci
+
+# Use a private trust configuration
+sigstore-a2a verify signed-card.json \
+  --identity dev@example.com \
+  --identity_provider https://accounts.google.com \
+  --trust_config ./client-trust-config.json
+
+# Verbose output with certificate and identity details
+sigstore-a2a --verbose verify signed-card.json \
+  --identity dev@example.com \
+  --identity_provider https://accounts.google.com
 ```
 
 ## GitHub Actions Integration
 
-Setting up automated Agent Card signing in GitHub Actions creates a secure and auditable process for publishing AI agents. The workflow below demonstrates how to integrate sigstore-a2a into your CI/CD pipeline, ensuring that every Agent Card published from your repository carries cryptographic proof of its origin.
+Automated Agent Card signing in GitHub Actions uses OIDC tokens to perform
+keyless signing. GitHub generates a token containing metadata about the
+repository, workflow, commit SHA, and actor. Sigstore embeds these claims
+into a short-lived X.509 certificate, creating an immutable link between
+your Agent Card and its source code. Every signature is logged in the
+public Rekor transparency log for auditability.
 
-The key to this integration is the OIDC (OpenID Connect) token that GitHub Actions provides. This token contains claims about the repository, workflow, and actor that triggered the build, which Sigstore embeds into the signing certificate. This creates an immutable link between your Agent Card and its source code.
+A reference workflow for signing against a private TAS deployment is available at
+[`.github/workflows/sign-agentcard-tas.yml`](.github/workflows/sign-agentcard-tas.yml).
+See [`examples/README.md`](examples/README.md) for full adaptation instructions.
+
+Below is a minimal workflow for public Sigstore:
 
 ```yaml
-name: Build and Sign Agent Card
+name: Sign Agent Card
 on:
   push:
     branches: [main]
-  pull_request:
-    branches: [main]
 
 permissions:
-  id-token: write  # Required for Sigstore OIDC token
-  contents: read   # Required to checkout repository
+  id-token: write   # Required for Sigstore OIDC token
+  contents: read
 
 jobs:
   sign-agent-card:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Set up Python
-        uses: actions/setup-python@v4
+      - uses: actions/setup-python@v4
         with:
-          python-version: '3.11'
+          python-version: "3.11"
 
-      - name: Install UV package manager
-        run: |
-          curl -LsSf https://astral.sh/uv/install.sh | sh
-          echo "$HOME/.cargo/bin" >> $GITHUB_PATH
-
-      - name: Install sigstore-a2a
-        run: |
-          uv sync --prerelease=allow
+      - name: Install rh-sigstore-a2a
+        run: pip install rh-sigstore-a2a
 
       - name: Sign Agent Card
-        env:
-          UV_PRERELEASE: allow
         run: |
-          uv run sigstore-a2a sign agent-card.json \
+          sigstore-a2a sign agent-card.json \
             --output signed-agent-card.json \
+            --use_ambient_credentials \
+            --provenance \
             --repository ${{ github.repository }}
 
-      - name: Verify signature locally
-        env:
-          UV_PRERELEASE: allow
+      - name: Verify signature
         run: |
-          uv run sigstore-a2a verify signed-agent-card.json \
-            --repository ${{ github.repository }} \
-            --workflow "${{ github.workflow }}"
+          sigstore-a2a verify signed-agent-card.json \
+            --identity_provider https://token.actions.githubusercontent.com \
+            --identity "https://github.com/${{ github.repository }}/.github/workflows/sign.yml@${{ github.ref }}" \
+            --repository ${{ github.repository }}
 
-      - name: Upload signed Agent Card
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: signed-agent-card
           path: signed-agent-card.json
           retention-days: 30
-
-      - name: Display signature information
-        env:
-          UV_PRERELEASE: allow
-        run: |
-          echo "Agent Card signed successfully!"
-          echo "Repository: ${{ github.repository }}"
-          echo "Workflow: ${{ github.workflow }}"
-          echo "SHA: ${{ github.sha }}"
-          echo "Actor: ${{ github.actor }}"
 ```
-
-### Understanding the Signing Process
-
-When your GitHub Actions workflow runs, several important things happen during the signing process. First, GitHub generates an OIDC token that contains metadata about the workflow execution, including the repository name, workflow name, commit SHA, and the user or system that triggered the run. The sigstore-a2a library detects this token automatically and uses it to authenticate with Sigstore's certificate authority "fulcio".
-
-Sigstore then issues a short-lived X.509 certificate that embeds the OIDC claims as certificate extensions. This certificate is used to sign your Agent Card using standard cryptographic algorithms. The signature, certificate, and a reference to the transparency log entry are all bundled together in the signed Agent Card file.
-
-The transparency log entry in Rekor provides public auditability. Anyone can verify that a signature was created at a specific time and tied to a specific repository and workflow, even if the signing certificate has expired. This creates a permanent, tamper-evident record of your Agent Card's provenance.
 
 ## Verification and Trust
 
-Agent Card verification is a critical component of the A2A security model. When you receive a signed Agent Card, you can cryptographically verify its authenticity and establish trust based on its provenance. The verification process checks both the signature validity and the identity claims embedded in the signing certificate. It then helps you tie back the 
-card to a specific repository, workflow, and actor that created it.
-
-### Basic Verification
-
-The simplest verification check confirms that the signature is valid and the Agent Card hasn't been tampered with:
-
-```bash
-# Basic signature verification
-uv run sigstore-a2a verify signed-agent-card.json
-
-# Verification with verbose output
-uv run sigstore-a2a --verbose verify signed-agent-card.json
-```
-
-When verification succeeds, you'll see details about the signing identity, including the repository, workflow, and other metadata from the CI/CD environment where the Agent Card was signed.
+Agent Card verification checks both signature validity and the identity claims
+embedded in the signing certificate. This ties each card back to a specific
+repository, workflow, and signer identity.
 
 ### Identity Constraints
 
-Yyou'll typically want to enforce identity constraints that ensure the Agent Card came from a trusted source. These constraints allow you to specify exactly which repositories, workflows, or actors you trust:
+In production, always enforce identity constraints to ensure the Agent Card
+came from a trusted source. Constraints let you specify exactly which OIDC
+issuer, signer identity, repository, and workflow you trust:
 
 ```bash
-# Verify that the card came from a specific repository
-uv run sigstore-a2a verify signed-agent-card.json --repository myorg/trusted-repo
+# Verify that the card was signed by a specific identity via a known issuer
+sigstore-a2a verify signed-agent-card.json \
+  --identity_provider https://token.actions.githubusercontent.com \
+  --identity "https://github.com/myorg/trusted-repo/.github/workflows/sign.yml@refs/heads/main"
 
-# Verify repository and workflow
-uv run sigstore-a2a verify signed-agent-card.json \
+# Add repository and workflow constraints
+sigstore-a2a verify signed-agent-card.json \
+  --identity_provider https://token.actions.githubusercontent.com \
+  --identity "https://github.com/myorg/trusted-repo/.github/workflows/sign.yml@refs/heads/main" \
   --repository myorg/trusted-repo \
-  --workflow "Build and Sign Agent Card"
-
-# Multiple constraints including actor
-uv run sigstore-a2a verify signed-agent-card.json \
-  --repository myorg/trusted-repo \
-  --workflow "Build and Sign Agent Card" \
-  --actor trusted-user
+  --workflow "Sign Agent Card"
 ```
 
+Identity constraints defend against several attack scenarios: they prevent an
+attacker who has compromised a different repository from producing Agent Cards
+that appear to come from your trusted source, and they ensure cards are only
+created through approved CI/CD workflows rather than manual processes that
+might bypass security controls.
 
-Identity constraints provide defense against several attack scenarios. They prevent an attacker who has compromised a different repository from creating Agent Cards that appear to come from your trusted source. They also ensure that Agent Cards are only created through approved CI/CD workflows, not through manual processes that might bypass security controls.
-
-### Transparency Log Verification
-
-Every signature created with Sigstore is automatically logged in the public Rekor transparency log. This provides an additional layer of security by creating a tamper-evident record of when the signature was created. You can search the transparency log to verify that a signature was properly logged:
-
-```bash
-# The transparency log entry is automatically verified during signature verification
-# Additional tooling like rekor-cli can be used for direct transparency log queries
-
-# Example: Search for entries from a specific repository
-rekor-cli search --rekor-url https://rekor.sigstore.dev \
-  --type dsse \
-  --query "repository:myorg/trusted-repo"
-```
-
-The transparency log serves multiple purposes in the security model. It provides public auditability, allowing anyone to verify that signatures were created at specific times. It also enables detection of backdated signatures or other anomalies that might indicate compromise. For Agent Cards, this creates a public record of when each version was signed and published.
+Every signature is automatically logged in the public
+[Rekor](https://github.com/sigstore/rekor) transparency log. This creates a
+tamper-evident record of when each signature was created, enabling detection of
+backdated signatures or other anomalies. The transparency log entry is verified
+automatically during `sigstore-a2a verify`.
 
 ### Keyless Signing Security
 
-Traditional code signing requires managing long-lived private keys, which creates operational overhead and security risks. Sigstore's keyless signing eliminates these concerns by using short-lived certificates tied to OIDC identity tokens. When you sign an Agent Card in GitHub Actions, the process uses an OIDC token that is valid for only the duration of your workflow run. This token is automatically exchanged for a signing certificate that expires within minutes.
+Traditional code signing requires managing long-lived private keys, creating
+operational overhead and security risk. Sigstore's keyless signing eliminates
+this by using short-lived certificates tied to OIDC identity tokens.
 
-This approach provides several security benefits. There are no long-lived secrets to manage or protect. The signing identity is cryptographically tied to your CI/CD environment, making it nearly impossible for an attacker to forge signatures without compromising your entire development infrastructure. The short certificate lifetime means that even if a certificate were somehow compromised, its window of misuse would be extremely limited.
+When you sign an Agent Card in GitHub Actions, the process uses an OIDC token
+valid only for the duration of your workflow run. This token is exchanged for a
+signing certificate that expires within minutes. Benefits:
+
+- **No long-lived secrets** to manage, rotate, or protect
+- **Cryptographic binding** to CI/CD identity — forging signatures requires
+  compromising the entire development infrastructure
+- **Limited exposure** — even if a certificate were compromised, its window of
+  misuse is extremely short
 
 ### Supply Chain Protection
 
-Agent Cards represent code and AI models that will be executed in distributed environments, making supply chain security critical. The combination of Sigstore signatures and SLSA provenance creates a verifiable chain of custody from source code to deployed agent.
+Agent Cards represent AI agents that will be executed in distributed
+environments, making supply chain security critical. The combination of
+Sigstore signatures and SLSA provenance creates a verifiable chain of custody
+from source code to deployed agent.
 
-When you sign an Agent Card, the signature embeds metadata about the exact source code revision, the build environment, and the CI/CD workflow used. This creates an immutable link between the Agent Card and its origins. Consumers can verify not just that the signature is valid, but that the Agent Card came from a trusted repository and was built using an approved process.
+When you sign an Agent Card with `--provenance`, the signature embeds metadata
+about the exact source code revision, the build environment, and the CI/CD
+workflow used. Consumers can verify not just that the signature is valid, but
+that the Agent Card came from a trusted repository and was built using an
+approved process.
 
 ### Verification Best Practices
 
-For production deployments, always use identity constraints when verifying Agent Cards. A basic signature verification only confirms that the signature is cryptographically valid, but doesn't establish whether you should trust the signer. Identity constraints allow you to specify exactly which repositories, workflows, and actors you trust.
-
-Consider implementing a policy where Agent Cards must come from repositories within your organization and must be built using standardized workflows. This prevents the use of Agent Cards that might have been signed by external parties or through non-standard processes.
-
-The transparency log provides an additional verification layer that should be leveraged in high-security environments. By checking that signatures are properly logged in Rekor, you can detect attempts to backdate signatures or other anomalies that might indicate compromise.
+- **Always use identity constraints** in production. A basic signature check
+  only confirms cryptographic validity, not whether you should trust the signer.
+- **Require organization-scoped repositories** — enforce that Agent Cards come
+  from repositories within your organization using `--repository`.
+- **Pin to specific workflows** — use `--workflow` to ensure cards are produced
+  only through standardized CI/CD pipelines.
+- **Leverage the transparency log** — in high-security environments, use
+  [rekor-cli](https://github.com/sigstore/rekor) for direct transparency log
+  queries and anomaly detection.
 
 ### Operational Security
 
-When setting up signing workflows, ensure that your GitHub repository has appropriate branch protection rules and required status checks. The security of your Agent Card signatures is only as strong as the security of your development environment.
-
-Consider using environment-specific signing, where Agent Cards intended for production are only signed from protected branches, while development versions can be signed from feature branches. This can be implemented using different repository constraints in your verification policies.
+- Ensure your GitHub repository has appropriate **branch protection rules** and
+  required status checks. Signature security is only as strong as your
+  development environment.
+- Consider **environment-specific signing**: Agent Cards intended for production
+  should only be signed from protected branches, while development versions can
+  be signed from feature branches. Implement this using different `--repository`
+  and `--workflow` constraints in your verification policies.
 
 ## API Reference
 
@@ -277,28 +346,103 @@ Consider using environment-specific signing, where Agent Cards intended for prod
 
 ```python
 class AgentCardSigner:
-    def __init__(self, issuer=None, identity_token=None, staging=False)
-    def sign_agent_card(self, agent_card, provenance_bundle=None) -> SignedAgentCard
-    def sign_file(self, input_path, output_path=None, provenance_bundle=None) -> Path
+    def __init__(
+        self,
+        identity_token: str | None = None,
+        trust_config: Path | None = None,
+        staging: bool = False,
+        instance: str | None = None,
+        client_id: str | None = None,
+        client_secret: str | None = None,
+        use_ambient_credentials: bool = False,
+        verbose: bool = False,
+    )
+
+    def sign_agent_card(
+        self,
+        agent_card: AgentCard | dict | str | Path,
+        provenance_bundle: SLSAProvenance | None = None,
+    ) -> SignedAgentCard
+
+    def sign_file(
+        self,
+        input_path: str | Path,
+        output_path: str | Path | None = None,
+        provenance_bundle: SLSAProvenance | None = None,
+    ) -> Path
 ```
 
 **Parameters:**
-- `staging`: Use Sigstore staging environment
-- `issuer`: Custom OIDC issuer (optional)
-- `identity_token`: Pre-obtained OIDC token (optional)
+- `identity_token` — Pre-obtained OIDC token (takes priority over ambient credentials)
+- `trust_config` — Path to ClientTrustConfig JSON (mutually exclusive with `staging`/`instance`)
+- `staging` — Use Sigstore staging environment
+- `instance` — Sigstore instance URL (TUF-bootstrapped, mutually exclusive with `staging`/`trust_config`)
+- `use_ambient_credentials` — Detect and use CI/CD OIDC credentials automatically
 
 ### AgentCardVerifier
 
 ```python
 class AgentCardVerifier:
-    def __init__(self, staging=False)
-    def verify_signed_card(self, signed_card, constraints=None) -> VerificationResult
-    def verify_file(self, file_path, constraints=None) -> VerificationResult
+    def __init__(
+        self,
+        identity: str | None = None,
+        oidc_issuer: str | None = None,
+        staging: bool = False,
+        trust_config: Path | None = None,
+        instance: str | None = None,
+    )
+
+    def verify_signed_card(
+        self,
+        signed_card: SignedAgentCard | dict | str | Path,
+        constraints: IdentityConstraints | None = None,
+    ) -> VerificationResult
+
+    def verify_file(
+        self,
+        file_path: str | Path,
+        constraints: IdentityConstraints | None = None,
+    ) -> VerificationResult
 ```
 
 **Parameters:**
-- `staging`: Use Sigstore staging environment
-- `constraints`: IdentityConstraints object for repository/workflow verification
+- `identity` — Expected signer identity (email or URI)
+- `oidc_issuer` — Expected OIDC issuer URL
+- `staging` — Use Sigstore staging environment
+- `trust_config` — Path to ClientTrustConfig JSON
+- `instance` — Sigstore instance URL (TUF-bootstrapped)
+
+### IdentityConstraints
+
+```python
+class IdentityConstraints:
+    def __init__(
+        self,
+        repository: str | None = None,     # e.g., "owner/repo"
+        workflow: str | None = None,        # e.g., "Sign Agent Card"
+        identity: str | None = None,        # e.g., "dev@example.com"
+        identity_provider: str | None = None,  # e.g., "https://accounts.google.com"
+    )
+```
+
+### VerificationResult
+
+```python
+class VerificationResult:
+    valid: bool                              # Whether verification succeeded
+    agent_card: AgentCard | None             # Verified agent card (extracted from DSSE payload)
+    certificate: x509.Certificate | None     # Signing certificate
+    identity: dict[str, Any]                 # Extracted identity claims
+    errors: list[str]                        # Verification errors (if any)
+```
+
+**VerificationResult fields:**
+- `valid`: Whether verification succeeded
+- `agent_card`: Verified AgentCard (protobuf message, extracted from DSSE payload)
+- `raw_card_data`: Raw predicate dict from the DSSE payload, preserving fields that may not map to the current protobuf schema (e.g., `url` from v0.2.x cards)
+- `certificate`: Signing certificate
+- `identity`: Extracted identity information
+- `errors`: List of verification errors
 
 **VerificationResult fields:**
 - `valid`: Whether verification succeeded
@@ -312,71 +456,41 @@ class AgentCardVerifier:
 
 ```python
 class ProvenanceBuilder:
-    def __init__(self, build_type="https://github.com/actions/workflow@v1")
-    def build_provenance(self, agent_card, source_repo=None, commit_sha=None) -> SLSAProvenance
-    def create_subject(self, agent_card, name=None) -> ProvenanceSubject
+    def __init__(self, build_type: str = "https://github.com/actions/workflow@v1")
+
+    def build_provenance(
+        self,
+        agent_card: AgentCard | dict | str | Path,
+        source_repo: str | None = None,
+        commit_sha: str | None = None,
+        workflow_ref: str | None = None,
+        builder_id: str | None = None,
+        external_params: dict | None = None,
+    ) -> SLSAProvenance
+
+    def create_subject(
+        self,
+        agent_card: AgentCard | dict | str | Path,
+        name: str | None = None,
+    ) -> ProvenanceSubject
 ```
 
-## CLI Reference
+## Related Projects
 
-The sigstore-a2a command-line interface provides comprehensive tooling for signing, verifying, and serving Agent Cards. Each command supports both testing and production modes, allowing for seamless development and deployment workflows.
-
-### Signing Commands
-
-```bash
-# Sign in CI/CD environment
-sigstore-a2a sign agent-card.json --repository owner/repo --output signed-card.json
-
-# Sign with SLSA provenance
-sigstore-a2a sign agent-card.json --repository owner/repo --commit-sha abc123
-
-# Use staging environment
-sigstore-a2a sign agent-card.json --staging
-```
-
-### Verification Commands
-
-```bash
-# Basic verification
-sigstore-a2a verify signed-card.json
-
-# Verification with constraints
-sigstore-a2a verify signed-card.json --repository owner/repo --workflow build
-
-# Verbose output with identity details
-sigstore-a2a --verbose verify signed-card.json
-```
-
-### Utility Commands
-
-```bash
-# Serve Agent Card at well-known endpoint
-sigstore-a2a serve signed-card.json --port 8080
-
-# Check dependencies and environment
-sigstore-a2a check-deps
-
-# Run demo with example Agent Card
-sigstore-a2a demo
-```
-
-## Troubleshooting
-
-### OIDC Token Issues
-
-In CI/CD environments, ensure:
-- `id-token: write` permission is set
-- Repository has OIDC enabled
-- Workflow runs in trusted environment
-
-Note: This library requires real OIDC credentials and does not support local signing outside of CI/CD environments.
+- [Sigstore](https://sigstore.dev/) — Keyless signing infrastructure
+- [sigstore-python](https://github.com/sigstore/sigstore-python) — Python client for Sigstore (used by this library)
+- [SLSA](https://slsa.dev/) — Supply chain security framework
+- [A2A Protocol](https://google.github.io/A2A/) — Agent-to-Agent communication specification
+- [Red Hat Trusted Artifact Signer](https://docs.redhat.com/en/documentation/red_hat_trusted_artifact_signer) — On-premise Sigstore deployment for enterprise environments
+- [Rekor](https://github.com/sigstore/rekor) — Transparency log for Sigstore signatures
+- [Fulcio](https://github.com/sigstore/fulcio) — Certificate authority for keyless signing
 
 ## License
 
 Apache License 2.0
 
-## Related Projects
+## Links
 
-- [Sigstore](https://sigstore.dev/) - Keyless signing infrastructure
-- [SLSA](https://slsa.dev/) - Supply chain security framework
-- [A2A Protocol](https://a2a-protocol.org) - Agent-to-Agent communication specification
+- [PyPI Package](https://pypi.org/project/rh-sigstore-a2a/)
+- [Source Code](https://github.com/securesign/sigstore-a2a)
+- [Issue Tracker](https://github.com/securesign/sigstore-a2a/issues)

@@ -1180,6 +1180,66 @@ wheels = [
 ]
 
 [[package]]
+name = "rh-sigstore-a2a"
+source = { editable = "." }
+dependencies = [
+    { name = "a2a-sdk" },
+    { name = "click" },
+    { name = "cryptography" },
+    { name = "fastapi" },
+    { name = "httpx" },
+    { name = "protobuf" },
+    { name = "pydantic" },
+    { name = "rich" },
+    { name = "sigstore" },
+    { name = "uvicorn" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "black" },
+    { name = "mypy" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "ruff" },
+    { name = "types-requests" },
+]
+docs = [
+    { name = "mkdocs" },
+    { name = "mkdocs-material" },
+    { name = "mkdocstrings", extra = ["python"] },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "a2a-sdk", specifier = ">=1.0.0,<2.0.0" },
+    { name = "click", specifier = ">=8.0.0" },
+    { name = "cryptography", specifier = ">=41.0.0" },
+    { name = "fastapi", specifier = ">=0.100.0" },
+    { name = "httpx", specifier = ">=0.24.0" },
+    { name = "protobuf", specifier = ">=4.0.0" },
+    { name = "pydantic", specifier = ">=2.0.0,<3.0.0" },
+    { name = "rich", specifier = ">=13.0.0" },
+    { name = "sigstore", specifier = ">=4.2.0" },
+    { name = "uvicorn", specifier = ">=0.23.0" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "black", specifier = ">=23.0.0" },
+    { name = "mypy", specifier = ">=1.0.0" },
+    { name = "pytest", specifier = ">=7.0.0" },
+    { name = "pytest-asyncio", specifier = ">=0.21.0" },
+    { name = "ruff", specifier = ">=0.12.5" },
+    { name = "types-requests" },
+]
+docs = [
+    { name = "mkdocs", specifier = ">=1.6.0" },
+    { name = "mkdocs-material", specifier = ">=9.5.0" },
+    { name = "mkdocstrings", extras = ["python"], specifier = ">=0.26.0" },
+]
+
+[[package]]
 name = "rich"
 version = "14.1.0"
 source = { registry = "https://pypi.org/simple" }
@@ -1249,66 +1309,6 @@ dependencies = [
 sdist = { url = "https://files.pythonhosted.org/packages/98/c3/84ec81173ade0dba5613feea577308cde4e69045cc804d02953e3a40922c/sigstore-4.2.0.tar.gz", hash = "sha256:bdbb49a42fd5f0ea6765919adb42ccee7254c482330764d0842eec4e11ad78d7", size = 88123, upload-time = "2026-01-26T15:01:35.203Z" }
 wheels = [
     { url = "https://files.pythonhosted.org/packages/05/ae/d7876024c2c84512e56528bd4de7ea444efed6d2eb74a11957a927f2532e/sigstore-4.2.0-py3-none-any.whl", hash = "sha256:ed2e0f50aae85148a8aa4fc0f57c298927fce430ad1f988f38611ce90c85829f", size = 109276, upload-time = "2026-01-26T15:01:33.944Z" },
-]
-
-[[package]]
-name = "sigstore-a2a"
-source = { editable = "." }
-dependencies = [
-    { name = "a2a-sdk" },
-    { name = "click" },
-    { name = "cryptography" },
-    { name = "fastapi" },
-    { name = "httpx" },
-    { name = "protobuf" },
-    { name = "pydantic" },
-    { name = "rich" },
-    { name = "sigstore" },
-    { name = "uvicorn" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "black" },
-    { name = "mypy" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "ruff" },
-    { name = "types-requests" },
-]
-docs = [
-    { name = "mkdocs" },
-    { name = "mkdocs-material" },
-    { name = "mkdocstrings", extra = ["python"] },
-]
-
-[package.metadata]
-requires-dist = [
-    { name = "a2a-sdk", specifier = ">=1.0.0,<2.0.0" },
-    { name = "click", specifier = ">=8.0.0" },
-    { name = "cryptography", specifier = ">=41.0.0" },
-    { name = "fastapi", specifier = ">=0.100.0" },
-    { name = "httpx", specifier = ">=0.24.0" },
-    { name = "protobuf", specifier = ">=4.0.0" },
-    { name = "pydantic", specifier = ">=2.0.0,<3.0.0" },
-    { name = "rich", specifier = ">=13.0.0" },
-    { name = "sigstore", specifier = ">=4.2.0" },
-    { name = "uvicorn", specifier = ">=0.23.0" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "black", specifier = ">=23.0.0" },
-    { name = "mypy", specifier = ">=1.0.0" },
-    { name = "pytest", specifier = ">=7.0.0" },
-    { name = "pytest-asyncio", specifier = ">=0.21.0" },
-    { name = "ruff", specifier = ">=0.12.5" },
-    { name = "types-requests" },
-]
-docs = [
-    { name = "mkdocs", specifier = ">=1.6.0" },
-    { name = "mkdocs-material", specifier = ">=9.5.0" },
-    { name = "mkdocstrings", extras = ["python"], specifier = ">=0.26.0" },
 ]
 
 [[package]]

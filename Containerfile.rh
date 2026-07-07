@@ -1,0 +1,33 @@
+FROM registry.redhat.io/ubi9/python-312-minimal@sha256:2eef57a47c201792a5c6188800c88660a4dcc57b2d60f8874f618e694067d4f9 AS builder
+
+USER 0
+WORKDIR /app
+RUN ARCH=$(uname -m) && \
+    if [ "$ARCH" = "ppc64le" ] || [ "$ARCH" = "s390x" ]; then \
+      PY_VER=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')") && \
+      microdnf install -y gcc openssl-devel perl "python${PY_VER}-devel" && microdnf clean all; \
+    fi
+COPY sigstore_a2a /app/sigstore_a2a
+COPY pyproject.toml /app/
+COPY README.md /app/
+COPY LICENSE /app/
+RUN pip install .
+
+FROM registry.redhat.io/ubi9/python-312-minimal@sha256:2eef57a47c201792a5c6188800c88660a4dcc57b2d60f8874f618e694067d4f9
+
+COPY --from=builder /opt/app-root/bin /opt/app-root/bin
+COPY --from=builder /opt/app-root/lib64/python3.12/site-packages /opt/app-root/lib64/python3.12/site-packages
+COPY LICENSE /licenses/license.txt
+
+USER 65532:65532
+
+ENTRYPOINT ["sigstore-a2a"]
+CMD ["--help"]
+
+LABEL description="Sigstore keyless signing for A2A Agent Cards"
+LABEL io.k8s.description="Sigstore keyless signing for A2A Agent Cards"
+LABEL io.k8s.display-name="rh-sigstore-a2a"
+LABEL io.openshift.tags="sigstore a2a agent-card signing security"
+LABEL summary="Provides keyless signing and verification for A2A Agent Cards using Sigstore."
+LABEL com.redhat.component="rh-sigstore-a2a"
+LABEL name="rhtas/rh-sigstore-a2a-rhel9"
