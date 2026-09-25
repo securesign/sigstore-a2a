@@ -37,7 +37,22 @@
         }
       }
     ],
-    "ctlogs": [],
+    "ctlogs": [
+      {
+        "baseUrl": "https://ctfe.tas.example.com",
+        "hashAlgorithm": "SHA2_256",
+        "publicKey": {
+          "rawBytes": "<BASE64-ENCODED-CTLOG-PUBLIC-KEY>",
+          "keyDetails": "PKIX_ECDSA_P256_SHA_256",
+          "validFor": {
+            "start": "2025-01-01T00:00:00Z"
+          }
+        },
+        "logId": {
+          "keyId": "<BASE64-ENCODED-CTLOG-ID>"
+        }
+      }
+    ],
     "timestampAuthorities": [
       {
         "subject": {
