@@ -21,8 +21,7 @@ name: Downstream Release
 on:
   push:
     tags:
-      - "rhtas-v[0-9]+.[0-9]+.[0-9]+"
-      - "rhtas-v[0-9]+.[0-9]+.[0-9]+-*"
+      - "rhtas-v*"
   workflow_dispatch:
     inputs:
       tag:
@@ -40,34 +39,51 @@ jobs:
       contents: read
     outputs:
       version: ${{ steps.version.outputs.version }}
+      ref: ${{ steps.ref.outputs.ref }}
+      tag_name: ${{ steps.version.outputs.tag_name }}
     steps:
       - name: Determine ref
         id: ref
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "ref=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+            if [[ ! "$RELEASE_TAG" =~ ^rhtas-v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+              echo "::error::tag must be a valid rhtas-v-prefixed semantic version"
+              exit 1
+            fi
+            echo "ref=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
           else
-            echo "ref=${{ github.ref }}" >> "$GITHUB_OUTPUT"
+            if [[ ! "${GITHUB_REF_NAME}" =~ ^rhtas-v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+              echo "::error::tag does not match the required rhtas-v semantic version"
+              exit 1
+            fi
+            echo "ref=$GITHUB_REF" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           ref: ${{ steps.ref.outputs.ref }}
           persist-credentials: false
 
       - name: Extract version from tag
         id: version
+        env:
+          RELEASE_REF: ${{ steps.ref.outputs.ref }}
         run: |
-          tag="${{ steps.ref.outputs.ref }}"
+          tag="$RELEASE_REF"
           version="${tag#refs/tags/rhtas-v}"
           version="${version#rhtas-v}"
           # Normalize hyphenated prerelease to PEP 440: 0.0.1-rc1 → 0.0.1rc1
           version=$(echo "$version" | sed -E 's/-?(rc|alpha|beta|dev)/\1/')
           echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "tag_name=${tag#refs/tags/}" >> "$GITHUB_OUTPUT"
 
       - name: Verify version consistency
+        env:
+          TAG_VERSION: ${{ steps.version.outputs.version }}
         run: |
-          tag_version="${{ steps.version.outputs.version }}"
+          tag_version="$TAG_VERSION"
           pkg_version=$(python -c "
           import re
           with open('sigstore_a2a/__init__.py') as f:
@@ -80,7 +96,9 @@ jobs:
           fi
 
       - name: Set up Hatch
-        uses: pypa/hatch@257e27e51a6a5616ed08a39a408a21c35c9931bc # install
+        uses: pypa/hatch@f647ed70d49adb885f53a27d1c7f5bdaeacf2c60 # install branch
+        with:
+          version: "1.18.1"
 
       - name: Build artifacts
         run: hatch build
@@ -107,7 +125,7 @@ jobs:
         with:
           name: dist
           path: dist/
-      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+      - uses: pypa/gh-action-pypi-publish@a892a5a61159132606e93a2fa6f4358831b04d26 # v1.14.2
 
   create_github_release:
     name: Create GitHub Release
@@ -120,17 +138,18 @@ jobs:
         with:
           name: dist
           path: dist/
-      - uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
+      - uses: softprops/action-gh-release@e598afbe1493e6b1bafb1f389cabb956eab91231 # v3.0.3
         with:
           draft: false
-          prerelease: ${{ contains(github.ref_name, 'rc') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') }}
+          tag_name: ${{ needs.build.outputs.tag_name }}
+          prerelease: ${{ contains(needs.build.outputs.tag_name, 'rc') || contains(needs.build.outputs.tag_name, 'beta') || contains(needs.build.outputs.tag_name, 'alpha') }}
           files: |
             dist/*
           generate_release_notes: true
 
   build_and_push_container:
     name: Build and Push Docker Image
-    needs: [publish]
+    needs: [build, publish]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -139,34 +158,35 @@ jobs:
       packages: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          ref: ${{ needs.build.outputs.ref }}
           persist-credentials: false
       - name: Login to GitHub Container Registry
-        uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
+        uses: docker/login-action@dbcb813823bdd20940b903addbd779551569679f # v4.6.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       - name: Build image
         id: build_image
-        uses: redhat-actions/buildah-build@7a95fa7ee0f02d552a32753e7414641a04307056 # v2.13
+        uses: redhat-actions/buildah-build@719e3c40d8af9790c23eca13f7daa339f2867034 # v3.1.0
         with:
           containerfiles: |
             ./Containerfile
           image: securesign/sigstore-a2a
-          tags: "latest ${{ github.ref_name }}"
+          tags: "latest ${{ needs.build.outputs.tag_name }}"
           archs: amd64
           oci: false
       - name: Push image to GHCR
-        uses: redhat-actions/push-to-registry@5ed88d269cf581ea9ef6dd6806d01562096bee9c # v2.8
+        uses: redhat-actions/push-to-registry@94ade333c38ecc0e60e94785125d9a52ca423b37 # v3.0.0
         id: push
         with:
           image: ${{ steps.build_image.outputs.image }}
           tags: ${{ steps.build_image.outputs.tags }}
           registry: ghcr.io
       - name: Generate artifact attestation
-        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        uses: actions/attest-build-provenance@4d101475d8b20a2381f78447822ac1eab6504dd8 # v4.2.2
         with:
           subject-name: ghcr.io/securesign/sigstore-a2a
           subject-digest: ${{ steps.push.outputs.digest }}

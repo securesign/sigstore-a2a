@@ -14,11 +14,11 @@ help: ## Show this help message
 
 # Environment setup
 install: ## Install dependencies with uv
-	uv sync --all-extras
+	uv sync --locked --all-extras
 	@echo "Dependencies installed"
 
 install-dev: ## Install development dependencies
-	uv sync --all-extras --dev
+	uv sync --locked --all-extras --dev
 	uv pip install -e .
 	@echo "Development environment ready"
 
@@ -48,7 +48,7 @@ format-check: ## Check code formatting
 
 # Security scanning
 security: ## Run bandit security scan
-	uv run bandit -r sigstore_a2a/ -ll
+	uv run --with bandit==1.9.4 bandit -r sigstore_a2a/ -ll
 
 # Build and release
 build: ## Build package
@@ -71,4 +71,3 @@ dev-test: ## Quick development test cycle
 	make test-fast
 	make template-test-syntax
 	@echo "Development tests passed!"
-
