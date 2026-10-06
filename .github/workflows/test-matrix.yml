@@ -43,7 +43,7 @@ jobs:
       - name: Install UV
         uses: astral-sh/setup-uv@803947b9bd8e9f986429fa0c5a41c367cd732b41 # v7.2.1
         with:
-          version: "latest"
+          version: "0.12.19"
 
       - name: Cache UV dependencies (Unix)
         if: runner.os != 'Windows'
@@ -71,7 +71,7 @@ jobs:
 
       - name: Upload coverage
         if: matrix.python-version == '3.14' && matrix.os == 'ubuntu-latest'
-        uses: codecov/codecov-action@e79a6962e0d4c0c17b229090214935d2e33f8354 # v6.0.1
+        uses: codecov/codecov-action@cddd853df119a48c5be31a973f8cd97e12e35e16 # v6.0.1
         with:
           file: ./coverage.xml
           fail_ci_if_error: false
@@ -96,7 +96,7 @@ jobs:
       - name: Install UV
         uses: astral-sh/setup-uv@803947b9bd8e9f986429fa0c5a41c367cd732b41 # v7.2.1
         with:
-          version: "latest"
+          version: "0.12.19"
 
       - name: Cache UV dependencies (Unix)
         if: runner.os != 'Windows'
@@ -147,7 +147,7 @@ jobs:
       - name: Install UV
         uses: astral-sh/setup-uv@803947b9bd8e9f986429fa0c5a41c367cd732b41 # v7.2.1
         with:
-          version: "latest"
+          version: "0.12.19"
 
       - name: Cache UV dependencies (Unix)
         if: runner.os != 'Windows'

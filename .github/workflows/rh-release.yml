@@ -21,8 +21,7 @@ name: Downstream Release
 on:
   push:
     tags:
-      - "rhtas-v[0-9]+.[0-9]+.[0-9]+"
-      - "rhtas-v[0-9]+.[0-9]+.[0-9]+-*"
+      - "rhtas-v*"
   workflow_dispatch:
     inputs:
       tag:
@@ -40,34 +39,51 @@ jobs:
       contents: read
     outputs:
       version: ${{ steps.version.outputs.version }}
+      ref: ${{ steps.ref.outputs.ref }}
+      tag_name: ${{ steps.version.outputs.tag_name }}
     steps:
       - name: Determine ref
         id: ref
+        env:
+          RELEASE_TAG: ${{ inputs.tag }}
         run: |
           if [ "${{ github.event_name }}" = "workflow_dispatch" ]; then
-            echo "ref=${{ inputs.tag }}" >> "$GITHUB_OUTPUT"
+            if [[ ! "$RELEASE_TAG" =~ ^rhtas-v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+              echo "::error::tag must be a valid rhtas-v-prefixed semantic version"
+              exit 1
+            fi
+            echo "ref=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
           else
-            echo "ref=${{ github.ref }}" >> "$GITHUB_OUTPUT"
+            if [[ ! "${GITHUB_REF_NAME}" =~ ^rhtas-v[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+              echo "::error::tag does not match the required rhtas-v semantic version"
+              exit 1
+            fi
+            echo "ref=$GITHUB_REF" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+      - uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
         with:
           ref: ${{ steps.ref.outputs.ref }}
           persist-credentials: false
 
       - name: Extract version from tag
         id: version
+        env:
+          RELEASE_REF: ${{ steps.ref.outputs.ref }}
         run: |
-          tag="${{ steps.ref.outputs.ref }}"
+          tag="$RELEASE_REF"
           version="${tag#refs/tags/rhtas-v}"
           version="${version#rhtas-v}"
           # Normalize hyphenated prerelease to PEP 440: 0.0.1-rc1 → 0.0.1rc1
           version=$(echo "$version" | sed -E 's/-?(rc|alpha|beta|dev)/\1/')
           echo "version=${version}" >> "$GITHUB_OUTPUT"
+          echo "tag_name=${tag#refs/tags/}" >> "$GITHUB_OUTPUT"
 
       - name: Verify version consistency
+        env:
+          TAG_VERSION: ${{ steps.version.outputs.version }}
         run: |
-          tag_version="${{ steps.version.outputs.version }}"
+          tag_version="$TAG_VERSION"
           pkg_version=$(python -c "
           import re
           with open('sigstore_a2a/__init__.py') as f:
@@ -80,7 +96,9 @@ jobs:
           fi
 
       - name: Set up Hatch
-        uses: pypa/hatch@257e27e51a6a5616ed08a39a408a21c35c9931bc # install
+        uses: pypa/hatch@f647ed70d49adb885f53a27d1c7f5bdaeacf2c60 # install branch
+        with:
+          version: "1.18.1"
 
       - name: Build artifacts
         run: hatch build
@@ -107,7 +125,7 @@ jobs:
         with:
           name: dist
           path: dist/
-      - uses: pypa/gh-action-pypi-publish@dc37677b2e1c63e2034f94d8a5b11f265b73ba33 # v1.14.2
+      - uses: pypa/gh-action-pypi-publish@a892a5a61159132606e93a2fa6f4358831b04d26 # v1.14.2
 
   create_github_release:
     name: Create GitHub Release
@@ -123,14 +141,15 @@ jobs:
       - uses: softprops/action-gh-release@b4309332981a82ec1c5618f44dd2e27cc8bfbfda # v3.0.0
         with:
           draft: false
-          prerelease: ${{ contains(github.ref_name, 'rc') || contains(github.ref_name, 'beta') || contains(github.ref_name, 'alpha') }}
+          tag_name: ${{ needs.build.outputs.tag_name }}
+          prerelease: ${{ contains(needs.build.outputs.tag_name, 'rc') || contains(needs.build.outputs.tag_name, 'beta') || contains(needs.build.outputs.tag_name, 'alpha') }}
           files: |
             dist/*
           generate_release_notes: true
 
   build_and_push_container:
     name: Build and Push Docker Image
-    needs: [publish]
+    needs: [build, publish]
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -139,8 +158,9 @@ jobs:
       packages: write
     steps:
       - name: Checkout repository
-        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        uses: actions/checkout@9f698171ed81b15d1823a05fc7211befd50c8ae0 # v6.0.3
         with:
+          ref: ${{ needs.build.outputs.ref }}
           persist-credentials: false
       - name: Login to GitHub Container Registry
         uses: docker/login-action@650006c6eb7dba73a995cc03b0b2d7f5ca915bee # v4.2.0
@@ -155,7 +175,7 @@ jobs:
           containerfiles: |
             ./Containerfile
           image: securesign/sigstore-a2a
-          tags: "latest ${{ github.ref_name }}"
+          tags: "latest ${{ needs.build.outputs.tag_name }}"
           archs: amd64
           oci: false
       - name: Push image to GHCR

@@ -59,10 +59,10 @@ jobs:
       - name: Install UV
         uses: astral-sh/setup-uv@803947b9bd8e9f986429fa0c5a41c367cd732b41 # v7.2.1
         with:
-          version: "latest"
+          version: "0.12.19"
 
       - name: Cache UV dependencies
-        uses: actions/cache@27d5ce7f107fe9357f9df03efb73ab90386fccae # v5.0.5
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/uv
           key: ${{ runner.os }}-uv-${{ hashFiles('uv.lock') }}
@@ -84,6 +84,11 @@ jobs:
         env:
           AGENT_CARD: ${{ inputs.agent_card || 'examples/georoute-agent.json' }}
         run: |
+          if [[ "$AGENT_CARD" != examples/*.json || "$AGENT_CARD" == *..* ]]; then
+            echo "::error::agent_card must be a JSON file directly under examples/"
+            exit 1
+          fi
+          test -f "$AGENT_CARD"
           uv run sigstore-a2a sign \
             --output signed-agent-card.json \
             --instance "$TAS_URL" \
@@ -94,12 +99,15 @@ jobs:
 
       # ── Step 3: Verify the signed Agent Card against TAS ──────────────
       - name: Verify Agent Card
+        env:
+          REPOSITORY: ${{ github.repository }}
+          WORKFLOW_REF: ${{ github.ref }}
         run: |
           uv run sigstore-a2a --verbose verify \
             --instance "$TAS_URL" \
             --identity_provider "https://token.actions.githubusercontent.com" \
-            --identity "https://github.com/${{ github.repository }}/.github/workflows/sign-agentcard-tas.yml@${{ github.ref }}" \
-            --repository "${{ github.repository }}" \
+            --identity "https://github.com/$REPOSITORY/.github/workflows/sign-agentcard-tas.yml@$WORKFLOW_REF" \
+            --repository "$REPOSITORY" \
             --workflow "Sign Agent Card (TAS)" \
             signed-agent-card.json
 

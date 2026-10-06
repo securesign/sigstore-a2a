@@ -14,11 +14,11 @@ help: ## Show this help message
 
 # Environment setup
 install: ## Install dependencies with uv
-	uv sync --all-extras
+	uv sync --locked --all-extras
 	@echo "Dependencies installed"
 
 install-dev: ## Install development dependencies
-	uv sync --all-extras --dev
+	uv sync --locked --all-extras --dev
 	uv pip install -e .
 	@echo "Development environment ready"
 
@@ -71,4 +71,3 @@ dev-test: ## Quick development test cycle
 	make test-fast
 	make template-test-syntax
 	@echo "Development tests passed!"
-
