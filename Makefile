@@ -48,7 +48,7 @@ format-check: ## Check code formatting
 
 # Security scanning
 security: ## Run bandit security scan
-	uv run bandit -r sigstore_a2a/ -ll
+	uv run --with bandit==1.9.4 bandit -r sigstore_a2a/ -ll
 
 # Build and release
 build: ## Build package
