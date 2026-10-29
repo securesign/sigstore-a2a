@@ -32,6 +32,7 @@ classifiers = [
 ]
 dependencies = [
     "a2a-sdk>=1.0.0,<2.0.0",
+    "dnspython>=2.9.0",
     "protobuf>=5.29.5",
     "sigstore>=4.3.0",
     "pydantic>=2.11.3,<3.0.0",
