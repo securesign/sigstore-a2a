@@ -1,4 +1,4 @@
-FROM registry.redhat.io/ubi9/python-312-minimal@sha256:d0ac54e77cd0be473b22fb274493526027f2746ec503b4a97ca08257813f0d4b AS builder
+FROM registry.redhat.io/ubi9/python-312-minimal@sha256:612eb994cd4255fbafd0de6967efba8d72b62c812058e68e28974458529d0523 AS builder
 
 USER 0
 WORKDIR /app
@@ -13,7 +13,7 @@ COPY README.md /app/
 COPY LICENSE /app/
 RUN pip install .
 
-FROM registry.redhat.io/ubi9/python-312-minimal@sha256:d0ac54e77cd0be473b22fb274493526027f2746ec503b4a97ca08257813f0d4b
+FROM registry.redhat.io/ubi9/python-312-minimal@sha256:612eb994cd4255fbafd0de6967efba8d72b62c812058e68e28974458529d0523
 
 COPY --from=builder /opt/app-root/bin /opt/app-root/bin
 COPY --from=builder /opt/app-root/lib64/python3.12/site-packages /opt/app-root/lib64/python3.12/site-packages
