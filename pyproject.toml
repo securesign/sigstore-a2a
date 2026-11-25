@@ -41,6 +41,9 @@ dependencies = [
     "uvicorn>=0.23.0",
     "cryptography>=45.0.0",
     "rich>=13.0.0",
+    # Security floors for transitive deps (CVE fixes)
+    "pyasn1>=0.6.5",     # CVE-2026-119194/119195/119196/119197: DoS in ASN.1 decoding
+    "dnspython>=2.9.2",  # CVE-2026-128089: DoS via WKS record parsing
 ]
 keywords = [
   "agent-to-agent communication",
@@ -83,6 +86,7 @@ dev = [
     "types-requests",
 ]
 docs = [
+    "markdown>=3.11.3",  # CVE-2019-25781: DoS via inline link parsing
     "mkdocs>=1.6.0",
     "mkdocs-material>=9.5.0",
     "mkdocstrings[python]>=0.26.0",
