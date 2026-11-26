@@ -16,18 +16,19 @@ name: Documentation
 
 on:
   push:
-    branches:
-      - main
+    branches: [main, tech-preview, 'release-*', 'release/**']
     paths:
       - 'docs/**'
       - 'mkdocs.yml'
       - 'sigstore_a2a/**'
       - '.github/workflows/docs.yml'
   pull_request:
+    branches: [main, tech-preview, 'release-*', 'release/**']
     paths:
       - 'docs/**'
       - 'mkdocs.yml'
       - 'sigstore_a2a/**'
+      - '.github/workflows/docs.yml'
   workflow_dispatch:
 
 permissions:
@@ -36,7 +37,7 @@ permissions:
   id-token: write
 
 concurrency:
-  group: "pages"
+  group: pages-${{ github.event_name }}-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:

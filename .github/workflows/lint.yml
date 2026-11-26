@@ -16,8 +16,17 @@ name: Lint
 
 on:
   push:
-    branches: [main]
+    branches: [main, tech-preview, 'release-*', 'release/**']
+    paths-ignore:
+      - 'Containerfile.rh'
+      - '.tekton/**'
+      - 'renovate.json'
   pull_request:
+    branches: [main, tech-preview, 'release-*', 'release/**']
+    paths-ignore:
+      - 'Containerfile.rh'
+      - '.tekton/**'
+      - 'renovate.json'
 
 permissions:
   contents: read

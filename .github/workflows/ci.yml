@@ -16,9 +16,18 @@ name: Core
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, tech-preview, 'release-*', 'release/**']
+    # Konflux uses these pipeline definitions to build Containerfile.rh.
+    paths-ignore:
+      - 'Containerfile.rh'
+      - '.tekton/**'
+      - 'renovate.json'
   pull_request:
-    branches: [main, develop]
+    branches: [main, tech-preview, 'release-*', 'release/**']
+    paths-ignore:
+      - 'Containerfile.rh'
+      - '.tekton/**'
+      - 'renovate.json'
   workflow_dispatch: {}
 
 permissions:

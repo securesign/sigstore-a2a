@@ -15,8 +15,18 @@
 name: Tests
 
 on:
+  push:
+    branches: [main, tech-preview, 'release-*', 'release/**']
+    paths-ignore:
+      - 'Containerfile.rh'
+      - '.tekton/**'
+      - 'renovate.json'
   pull_request:
-    branches: [main, develop]
+    branches: [main, tech-preview, 'release-*', 'release/**']
+    paths-ignore:
+      - 'Containerfile.rh'
+      - '.tekton/**'
+      - 'renovate.json'
 
 permissions:
   contents: read
