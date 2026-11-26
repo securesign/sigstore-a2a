@@ -15,8 +15,18 @@
 name: Dependencies
 
 on:
+  push:
+    branches: [main, tech-preview, 'release-*', 'release/**']
+    paths-ignore:
+      - 'Containerfile.rh'
+      - '.tekton/**'
+      - 'renovate.json'
   pull_request:
-    branches: [main]
+    branches: [main, tech-preview, 'release-*', 'release/**']
+    paths-ignore:
+      - 'Containerfile.rh'
+      - '.tekton/**'
+      - 'renovate.json'
 
 permissions:
   contents: read
@@ -24,6 +34,8 @@ permissions:
 jobs:
   review:
     name: Review
+    # Creating or deleting a branch does not provide two commits to compare.
+    if: github.event_name != 'push' || (!github.event.created && !github.event.deleted)
     runs-on: ubuntu-latest
     steps:
       - name: Checkout repository
@@ -32,4 +44,6 @@ jobs:
       - name: Dependency Review
         uses: actions/dependency-review-action@a1d282b36b6f3519aa1f3fc636f609c47dddb294 # v5.0.0
         with:
+          base-ref: ${{ github.event.pull_request.base.sha || github.event.before }}
+          head-ref: ${{ github.event.pull_request.head.sha || github.event.after }}
           fail-on-severity: moderate

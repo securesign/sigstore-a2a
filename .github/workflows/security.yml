@@ -16,13 +16,18 @@ name: Security
 
 on:
   push:
-    branches: [main]
+    branches: [main, tech-preview, 'release-*', 'release/**']
     paths:
       - '**.py'
       - 'pyproject.toml'
       - 'uv.lock'
+      - '.github/workflows/security.yml'
   pull_request:
-    branches: [main]
+    branches: [main, tech-preview, 'release-*', 'release/**']
+    paths-ignore:
+      - 'Containerfile.rh'
+      - '.tekton/**'
+      - 'renovate.json'
 
 permissions:
   contents: read
